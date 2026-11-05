@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pinecrest Resident Assistant</title>
+<style>
+  :root {
+    --mist: #eaf0ed; --paper: #ffffff; --ink: #1c2a27; --muted: #5b6b66;
+    --pine: #2e5b4f; --line: #cdd8d3; --bubble: #dce8e3;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --mist: #111a18; --paper: #18231f; --ink: #e4ece8; --muted: #9bb0a8;
+            --pine: #7fb8a6; --line: #2c3b36; --bubble: #22332d; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--mist); color: var(--ink);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         display: flex; justify-content: center; padding: 24px 16px; }
+  main { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 16px; }
+  header { border-left: 6px solid var(--pine); padding: 4px 0 4px 14px; }
+  h1 { margin: 0; font-size: 1.35rem; letter-spacing: -0.01em; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 0.95rem; }
+  #log { background: var(--paper); border: 1px solid var(--line); border-radius: 12px;
+         min-height: 360px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+         overflow-y: auto; max-height: 65vh; }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; white-space: pre-wrap; }
+  .you { align-self: flex-end; background: var(--pine); color: var(--paper); }
+  .bot { align-self: flex-start; background: var(--bubble); }
+  .src { display: block; margin-top: 6px; font-size: 0.8rem; color: var(--muted); }
+  .empty { color: var(--muted); margin: auto; text-align: center; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
+          background: var(--paper); color: var(--ink); font: inherit; }
+  button { padding: 12px 18px; border: 0; border-radius: 10px; background: var(--pine);
+           color: var(--paper); font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  input:focus-visible, button:focus-visible { outline: 3px solid var(--pine); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Pinecrest Resident Assistant</h1>
+    <p>Ask about building rules, amenities and community guidelines.</p>
+  </header>
+  <div id="log" aria-live="polite"><p class="empty">Ask a question to get started, like "When does the gym open?"</p></div>
+  <form id="f">
+    <input id="q" autocomplete="off" placeholder="Type your question" aria-label="Your question" required>
+    <button id="send">Ask</button>
+  </form>
+</main>
+<script>
+  const log = document.getElementById("log"), form = document.getElementById("f"),
+        q = document.getElementById("q"), send = document.getElementById("send");
+  function add(text, cls, sources) {
+    log.querySelector(".empty")?.remove();
+    const d = document.createElement("div");
+    d.className = "msg " + cls; d.textContent = text;
+    if (sources && sources.length) {
+      const s = document.createElement("span"); s.className = "src";
+      s.textContent = "Sources: " + sources.join(", "); d.appendChild(s);
+    }
+    log.appendChild(d); log.scrollTop = log.scrollHeight;
+  }
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const question = q.value.trim(); if (!question) return;
+    add(question, "you"); q.value = ""; send.disabled = true;
+    try {
+      const r = await fetch("/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+                                       body: JSON.stringify({ question }) });
+      if (!r.ok) throw new Error("The server returned " + r.status + ". Check the terminal running uvicorn.");
+      const data = await r.json(); add(data.answer, "bot", data.sources);
+    } catch (err) { add(err.message, "bot"); }
+    finally { send.disabled = false; q.focus(); }
+  });
+</script>
+</body>
+</html>
